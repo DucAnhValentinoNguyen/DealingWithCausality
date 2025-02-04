@@ -1,0 +1,86 @@
+---
+title: "DealingWithCausality"
+author: "Duc-Anh Nguyen"
+date: "2025-02-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## First case study: Instrumental variables
+First we encounter a dataset, where we would want to see if people work more or less (# weeks in year) when they have more than 2 child, a.k.a. we want to check if having more kids causes an woman to work more/less per year.
+
+The dataset have information of American women aged 21-35 with two or more children (no individual with only 1 kid is presented here).
+```{r}
+data <- foreign::read.dta("fertility.dta")
+head(data)
+dim(data)
+skimr::skim(data)
+
+lm(weeksm1~morekids, data = data) |> summary()
+```
+The result shows that they work less with more children they have, approx. 5.39 weeks less per year.
+
+Ok we find a stat. significant negative relationship between those 2, but is it a causal effect though? 
+
+Also the model is not quite a good fit as it only explain approx 1.5 percents of the variance, which indicates not a good model fit.  
+```{r}
+lm(weeksm1~., data = data) |> summary()
+lm(weeksm1~.-samesex-boy1st, data = data) |> summary()
+lm(weeksm1~.-samesex-boy1st-boy2nd, data = data) |> summary()
+```
+Ok we overlooked the other effects. Still OLS regression is not suitable here for estimating the causal effect. Two reasons are:
++ Unobserved effects: there might be more factors being responsible for women working more/less. These factors (such as education, husband's income) could be in correlation with our (allegedly) cause (variable morekids), hence cause a bias in the OLS estimator.
++ Simutaneous causality: it might yes be a causality, but it could be the other way around though?(working alot causes women to have less than 2 kids?)
+```{r}
+
+glm(morekids~weeksm1, data = data, family = binomial(link = "logit")) |> summary()
+
+```
+could be the other way around...
+
+Let check the variable samesex (= 1 if the first two children have the same sex and = 0 otherwise). This variable could be an instrumental variable as it fulfills the two conditions:
++ correlation with the endogonic regressor morekids: if parents had 2 girls or 2 boys, they might have more motivation to have one more kid of the oppisite sex, while that motivation would disappear if they already had 1 boy and 1 girl.
++ likely uncorrelation with other determinants of weeksm1 (ethnicity of mother, age of mother) 
+```{r}
+stats::cor(data$morekids, data$samesex)
+stats::cor(data$weeksm1, data$samesex)
+
+TSLS_s1 <- lm(morekids~samesex, data = data)
+TSLS_s1 |> summary()
+TSLS_s2 <- lm(weeksm1~fitted(TSLS_s1), data = data)
+TSLS_s2 |> summary()
+```
+Women with more than 2 kids work in average 6.3 weeks less per year
+
+There is a package for this as well
+```{r}
+#install.packages("ivreg")
+library(ivreg)
+ivreg(weeksm1~morekids|samesex, data = data) |> summary()
+```
+
+
+## Second case study: Propensity Score
+```{r}
+
+
+
+```
+
+
+```{r}
+
+
+
+```
+
+
+```{r}
+
+
+
+```
